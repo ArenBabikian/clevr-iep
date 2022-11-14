@@ -29,8 +29,9 @@ def is_chain(program_list):
 
 def list_to_tree(program_list):
   def build_subtree(cur):
+    f = cur['function'] if 'function' in cur else cur['type']
     return {
-      'function': cur['function'],
+      'function': f,
       'value_inputs': [x for x in cur['value_inputs']],
       'inputs': [build_subtree(program_list[i]) for i in cur['inputs']],
     }

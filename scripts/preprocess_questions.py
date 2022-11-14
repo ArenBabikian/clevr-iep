@@ -32,6 +32,8 @@ parser.add_argument('--mode', default='prefix',
                     choices=['chain', 'prefix', 'postfix'])
 parser.add_argument('--input_questions_json', required=True)
 parser.add_argument('--input_vocab_json', default='')
+parser.add_argument('--min_index', default=0, type=int)
+parser.add_argument('--max_index', default=None, type=int)
 parser.add_argument('--expand_vocab', default=0, type=int)
 parser.add_argument('--unk_threshold', default=1, type=int)
 parser.add_argument('--encode_unk', default=0, type=int)
@@ -63,12 +65,15 @@ def main(args):
   with open(args.input_questions_json, 'r') as f:
     questions = json.load(f)['questions']
 
+  # Only keep the relevant questions
+  questions = [q for q in questions if ( q['image_index'] >= args.min_index and (not args.max_index or q['image_index'] < args.max_index )) ]
+
   # Either create the vocab or load it from disk
   if args.input_vocab_json == '' or args.expand_vocab == 1:
     print('Building vocab')
     if 'answer' in questions[0]:
       answer_token_to_idx = build_vocab(
-        (q['answer'] for q in questions)
+        (str(q['answer']) for q in questions)
       )
     question_token_to_idx = build_vocab(
       (q['question'] for q in questions),
@@ -139,7 +144,7 @@ def main(args):
       programs_encoded.append(program_encoded)
 
     if 'answer' in q:
-      answers.append(vocab['answer_token_to_idx'][q['answer']])
+      answers.append(vocab['answer_token_to_idx'][str(q['answer'])])
 
   # Pad encoded questions and programs
   max_question_length = max(len(x) for x in questions_encoded)

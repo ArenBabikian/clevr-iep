@@ -1,5 +1,8 @@
 data/
+clevr-distinct/
 *.pyc
 .env/
 *.swp
 .ipynb_checkpoints/
+models/
+.vscode

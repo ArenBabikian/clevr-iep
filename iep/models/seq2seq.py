@@ -169,7 +169,7 @@ class Seq2Seq(nn.Module):
       # logprobs is N x 1 x V
       logprobs, h, c = self.decoder(encoded, cur_input, h0=h, c0=c)
       logprobs = logprobs / temperature
-      probs = F.softmax(logprobs.view(N, -1)) # Now N x V
+      probs = F.softmax(logprobs.view(N, -1), dim=1) # Now N x V
       if argmax:
         _, cur_output = probs.max(1)
       else:
@@ -180,7 +180,7 @@ class Seq2Seq(nn.Module):
       not_done = logical_not(done)
       y[:, t][not_done] = cur_output_data[not_done]
       done = logical_or(done, cur_output_data.cpu() == self.END)
-      cur_input = cur_output
+      cur_input = cur_output.unsqueeze(dim=1)
       if done.sum() == N:
         break
     return Variable(y.type_as(x.data))
