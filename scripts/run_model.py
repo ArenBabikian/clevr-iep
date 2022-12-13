@@ -130,8 +130,21 @@ def run_single_example(args, model):
   img = (img.astype(np.float32) / 255.0 - mean) / std
 
   # Use CNN to extract features for the image
-  img_var = Variable(torch.FloatTensor(img).type(dtype), volatile=True)
-  feats_var = cnn(img_var)
+  img_var = Variable(torch.FloatTensor(img).type(dtype))
+  img_var.requires_grad = False
+  # with torch.no_grad():
+  #   img_var = Variable(torch.FloatTensor(img).type(dtype), volatile=True)
+  input = img_var
+  print(input.size())
+  for layer in cnn:
+    output = layer(input)
+    print(output.size())
+    input = output
+  # feats_var = cnn(img_var)
+  feats_var = output
+
+  ##### BASICALLY OUR WORK IS DONE AT THIS STAGE (FOR NOW)
+  # exit()
 
   # Tokenize the question
   vocab = load_vocab(args)
@@ -143,7 +156,8 @@ def run_single_example(args, model):
                        allow_unk=True)
   question_encoded = torch.LongTensor(question_encoded).view(1, -1)
   question_encoded = question_encoded.type(dtype).long()
-  question_var = Variable(question_encoded, volatile=True)
+  question_var = Variable(question_encoded)
+  question_var.requires_grad = False
 
   # Run the model
   print('Running the model\n')
@@ -157,6 +171,11 @@ def run_single_example(args, model):
                           question_var,
                           temperature=args.temperature,
                           argmax=(args.sample_argmax == 1))
+    # print(type(predicted_program))
+    print(feats_var.size())
+    print(feats_var.dtype)
+    print(predicted_program)
+    print(predicted_program.dtype)
     scores = execution_engine(feats_var, predicted_program)
   else:
     model.type(dtype)
@@ -164,7 +183,8 @@ def run_single_example(args, model):
 
   # Print results
   _, predicted_answer_idx = scores.data.cpu()[0].max(dim=0)
-  predicted_answer = vocab['answer_idx_to_token'][predicted_answer_idx[0]]
+  print(predicted_answer_idx[0])
+  predicted_answer = vocab['answer_idx_to_token'][predicted_answer_idx[0].item()]
 
   print('Question: "%s"' % args.question)
   print('Predicted answer: ', predicted_answer)
@@ -175,7 +195,8 @@ def run_single_example(args, model):
     program = predicted_program.data.cpu()[0]
     num_inputs = 1
     for fn_idx in program:
-      fn_str = vocab['program_idx_to_token'][fn_idx]
+      # print(type(fn_idx))
+      fn_str = vocab['program_idx_to_token'][fn_idx.item()]
       num_inputs += iep.programs.get_num_inputs(fn_str) - 1
       print(fn_str)
       if num_inputs == 0:
@@ -187,7 +208,10 @@ def build_cnn(args, dtype):
     raise ValueError('Invalid model "%s"' % args.cnn_model)
   if not 'resnet' in args.cnn_model:
     raise ValueError('Feature extraction only supports ResNets')
+  # print(torchvision.models.__dict__)
+  # print(args.cnn_model)
   whole_cnn = getattr(torchvision.models, args.cnn_model)(pretrained=True)
+  # print(whole_cnn.__dict__)
   layers = [
     whole_cnn.conv1,
     whole_cnn.bn1,

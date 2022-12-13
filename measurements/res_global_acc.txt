@@ -1,0 +1,46 @@
+
+>>> enc=resnet101, dec=9k, qs=answers-obj-ex, ims=[0..1000]
+  Global Accuracy = 0.9873125 (15797/16000)
+>>> enc=resnet101, dec=18k, qs=answers-obj-ex, ims=[0..1000]
+  Global Accuracy = 0.992875 (15886/16000)
+>>> enc=resnet101, dec=700k_strong, qs=answers-obj-ex, ims=[0..1000]
+  Global Accuracy = 0.9939375 (15903/16000)
+
+>>> enc=resnet101, dec=9k, qs=answers-obj-cnt, ims=[0..1000]
+  Global Accuracy = 0.97225 (15556/16000)
+>>> enc=resnet101, dec=18k, qs=answers-obj-cnt, ims=[0..1000]
+  Global Accuracy = 0.9875 (15800/16000)
+>>> enc=resnet101, dec=700k_strong, qs=answers-obj-cnt, ims=[0..1000]
+  Global Accuracy = 0.992625 (15882/16000)
+
+
+
+>>> enc=resnet101, dec=9k, qs=answers-obj-ex, ims=[0..100]
+  Global Accuracy = 0.989375 (1583/1600)
+>>> enc=resnet101, dec=18k, qs=answers-obj-ex, ims=[0..100]
+  Global Accuracy = 0.99375 (1590/1600)
+>>> enc=resnet101, dec=700k_strong, qs=answers-obj-ex, ims=[0..100]
+  Global Accuracy = 0.995625 (1593/1600)
+
+>>> enc=resnet101, dec=9k, qs=answers-obj-cnt, ims=[0..100]
+  Global Accuracy = 0.97125 (1554/1600)
+>>> enc=resnet101, dec=18k, qs=answers-obj-cnt, ims=[0..100]
+  Global Accuracy = 0.988125 (1581/1600)
+>>> enc=resnet101, dec=700k_strong, qs=answers-obj-cnt, ims=[0..100]
+  Global Accuracy = 0.99125 (1586/1600)
+
+
+
+>>> enc=resnet101, dec=9k, qs=answers-rel-ex, ims=[0..100]
+  Global Accuracy = 0.8518730886850153 (35656/41856)
+>>> enc=resnet101, dec=18k, qs=answers-rel-ex, ims=[0..100]
+  Global Accuracy = 0.9827264908256881 (41133/41856)
+>>> enc=resnet101, dec=700k_strong, qs=answers-rel-ex, ims=[0..100]
+  Global Accuracy = 0.9902045107033639 (41446/41856)
+
+>>> enc=resnet101, dec=9k, qs=answers-rel-cnt, ims=[0..100]
+  Global Accuracy = 0.9052704510703364 (37891/41856)
+>>> enc=resnet101, dec=18k, qs=answers-rel-cnt, ims=[0..100]
+  Global Accuracy = 0.9801223241590215 (41024/41856)
+>>> enc=resnet101, dec=700k_strong, qs=answers-rel-cnt, ims=[0..100]
+  Global Accuracy = 0.9862624235474006 (41281/41856)

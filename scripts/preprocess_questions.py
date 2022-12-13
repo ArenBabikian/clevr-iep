@@ -140,6 +140,11 @@ def main(args):
       program = q['program']
       program_str = program_to_str(program, args.mode)
       program_tokens = tokenize(program_str)
+      # print(question)
+      # print(program)
+      # print(program_str)
+      # print(program_tokens)
+      # print(vocab['program_token_to_idx'])
       program_encoded = encode(program_tokens, vocab['program_token_to_idx'])
       programs_encoded.append(program_encoded)
 

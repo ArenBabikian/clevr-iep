@@ -60,7 +60,7 @@ models = {
 def main(args):
   print()
   models_path = Path(args.models_dir)
-  Path(args.output_dir).mkdir(exist_ok=True)
+  Path(args.output_dir).mkdir(exist_ok=True, parents=True)
   # results = {}
   
   for name, model_name in tqdm(models.items()):
@@ -73,7 +73,6 @@ def main(args):
       execution_engine, _ = utils.load_execution_engine(models_path / model_name[1], verbose=False)
       if args.vocab_json is not None:
         new_vocab = utils.load_vocab(args.vocab_json)
-        print(new_vocab)
         program_generator.expand_encoder_vocab(new_vocab['question_token_to_idx'])
       model = (program_generator, execution_engine)
       vocab_path = models_path / model_name[0]
@@ -85,8 +84,11 @@ def main(args):
         new_vocab = utils.load_vocab(args.vocab_json)
         model.rnn.expand_vocab(new_vocab['question_token_to_idx'])
 
-    # TODO
-    # givew vocab path as command line arg. Otherwise, it is defaulting to the the 32-size default CLEVR vocab used totrain the pretrained odels
+    #PRINT EMBEDDED VOCAB
+    # import json
+    # with open(f'/mnt/c/git/clevr-iep/{name}-vocab.json', 'w') as f:
+    #   json.dump(load_vocab(vocab_path), f)
+    # continue
 
     # TODO
     # run for a single model, given as cmd line arg, instead of a dictionary in this file
