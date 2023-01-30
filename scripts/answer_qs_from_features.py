@@ -48,9 +48,9 @@ parser.add_argument('--image_features', type=str, default=None)
 parser.add_argument('--output_dir', default=None)
 
 models = {
-    '18k': ('program_generator_18k.pt', 'execution_engine_18k.pt'),
     '9k': ('program_generator_9k.pt', 'execution_engine_9k.pt'),
-    '700k_strong': ('program_generator_700k.pt', 'execution_engine_700k_strong.pt'),
+    '18k': ('program_generator_18k.pt', 'execution_engine_18k.pt'),
+     '700k_strong': ('program_generator_700k.pt', 'execution_engine_700k_strong.pt'),
     # 'lstm': 'lstm.pt',
     # 'cnn_lstm': 'cnn_lstm.pt'#,
     # 'cnn_lstm_sa': 'cnn_lstm_sa.pt',
@@ -140,7 +140,12 @@ def run_raw_images(args, model, vocab_path):
   q_ids = []
   all_scores = []
   predicted = []
+  counter = 0
   for i in tqdm(range(0, num_questions, args.questions_interval)):
+    # Add counter if tqdm is not working
+    counter+=1
+    if counter % 300 == 0 :
+      print(f'{int(counter/300)}-', end='')
     # (*) Get image features
     img_id = image_ids[i]
     feats_var = image_features[img_id]

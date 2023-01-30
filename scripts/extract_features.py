@@ -30,6 +30,8 @@ parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--use_gpu', default=1, type=int)
 parser.add_argument('--get_every_layer', default=0, type=int)
 
+parser.add_argument('--alt_naming', default=False, action='store_true')
+
 def build_model(args, dtype):
   if not hasattr(torchvision.models, args.model):
     raise ValueError('Invalid model "%s"' % args.model)
@@ -87,7 +89,10 @@ def main(args):
   idx_set = set()
   for fn in os.listdir(args.input_image_dir):
     if not fn.endswith('.png'): continue
-    idx = int(os.path.splitext(fn)[0].split('_')[-1])
+    if not args.alt_naming:
+      idx = int(os.path.splitext(fn)[0].split('_')[-1])
+    else:
+      idx = int(os.path.splitext(fn)[0].split('_')[-2])
     input_paths.append((os.path.join(args.input_image_dir, fn), idx))
     idx_set.add(idx)
   input_paths.sort(key=lambda x: x[1])

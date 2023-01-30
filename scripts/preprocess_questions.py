@@ -63,10 +63,17 @@ def main(args):
 
   print('Loading data')
   with open(args.input_questions_json, 'r') as f:
-    questions = json.load(f)['questions']
+    questions_raw = json.load(f)['questions']
 
   # Only keep the relevant questions
-  questions = [q for q in questions if ( q['image_index'] >= args.min_index and (not args.max_index or q['image_index'] < args.max_index )) ]
+  questions = []
+  for q in questions_raw:
+    # handle case where we have 1 image per graph shape. So the internal image_index
+    # is 1 for all images, but the real index is included as the split.
+    middle_split_str = os.path.splitext(q['image'])[0].split('_')[-2]
+    im_index = int(middle_split_str) if middle_split_str.isdigit() else q["image_index"]
+    if ( im_index >= args.min_index and (not args.max_index or image_idxs < args.max_index )):
+      questions.append(q)
 
   # Either create the vocab or load it from disk
   if args.input_vocab_json == '' or args.expand_vocab == 1:
@@ -125,7 +132,9 @@ def main(args):
     question = q['question']
 
     orig_idxs.append(orig_idx)
-    image_idxs.append(q['image_index'])
+    middle_split_str = os.path.splitext(q['image'])[0].split('_')[-2]
+    im_index = int(middle_split_str) if middle_split_str.isdigit() else q["image_index"]
+    image_idxs.append(im_index)
     if 'question_family_index' in q:
       question_families.append(q['question_family_index'])
     question_tokens = tokenize(question,
