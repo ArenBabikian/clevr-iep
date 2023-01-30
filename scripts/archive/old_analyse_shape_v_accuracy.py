@@ -31,6 +31,8 @@ import matplotlib.pyplot as plt
 import time
 import random
 import copy
+import math
+import statistics
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 parser = argparse.ArgumentParser()
@@ -52,6 +54,10 @@ parser.add_argument('--encoder', default=None)
 parser.add_argument('--decoder_name', default=None)
 parser.add_argument('--answers_name', default=None)
 parser.add_argument('--shape_analysis', default='00')
+
+parser.add_argument('--input_scene_file', default='../output/CLEVR_scenes.json',
+    help="JSON file containing ground-truth scene information for all images " +
+         "from render_images.py")
 
 num_neurons = 1024*14*14
 allowed_parallels = [0, 2147483647]
@@ -259,7 +265,7 @@ def main(args):
     ans_path = os.path.join(args.encoder_dir, f'{q}/{e}', decoder_file_name)
     f_ans = h5py.File(ans_path, 'r')
 
-    # get ground-truth file
+    # get question ground-truth file
     with open(args.questions_json, 'r') as f:
         gt_questions = json.load(f)["questions"]
 
@@ -271,6 +277,15 @@ def main(args):
     # res_gt_str = str(res_gt)
     # print(len(f_ans['question_ids']))
     # exit()
+    
+    # image ground truth    
+    with open(args.input_scene_file, 'r') as f:
+        scene_data = json.load(f)
+        all_scenes = scene_data['scenes']
+
+    for scene in all_scenes:
+        img_id = scene["image_index"]
+        num_obj = len(scene["objects"])
 
     #################
     # MEASUREMENT SETUP
@@ -290,67 +305,10 @@ def main(args):
             image_2_accuracy[i] = None
         
     else:
-        # GATHER IMAGE ACCURACY INFO FROM QUESTION RESULTS FILES
-
-        # GATHER image-to-related-questions-ids map
-        image_ids = list(range(args.images_max))
-        image_2_related_q_idx = [[] for _ in image_ids]
-        for qu in gt_questions:
-            if qu["image_index"] in range(args.images_min, args.images_max):
-                image_2_related_q_idx[qu['image_index']].append(qu["question_index"]) 
-                # TODO could possibly simplify this by just looking at the list id
-
-        # GATHER image-to-accuracy map
-        image_2_accuracy = [{"cor":None, "tot":None} for _ in image_2_related_q_idx]
-        for img_id, related_qs in enumerate(image_2_related_q_idx):
-            correct_preditions = 0
-            total_predictions = 0
-            for q_id_2 in related_qs:
-                ms_ans = f_ans["results"][q_id_2]
-                ms_ans_str = vocab[ms_ans]
-                gt_ans_str = gt_questions[q_id_2]["answer"]
-
-                total_predictions += 1
-                if ms_ans_str == gt_ans_str:
-                    correct_preditions += 1
-
-            if len(related_qs) == 0:
-                image_2_accuracy[img_id] = None
-            else:
-                image_2_accuracy[img_id]["cor"] = correct_preditions
-                image_2_accuracy[img_id]["tot"] = total_predictions
-
-        # # TEMPORARY - Print accuracy info to file, for reuse
-        acc_save_dir = f'{args.data_json}/accuracy/{dec_short}'
-        if not os.path.isdir(acc_save_dir):
-            os.makedirs(acc_save_dir)
-        acc_save_path = f'{acc_save_dir}/{q[8:]}-{args.images_min}-{args.images_max}.json'
-        with open(acc_save_path, 'w') as f:
-            json.dump(image_2_accuracy, f)
-        print(f'    Saving accuracies at {acc_save_path}')
-        exit()
-        # TEMPORARY - END
-
-    # MEASURE AND PRINT GLOBAL ACCURACY
-    if args.shape_analysis[0] == '1':
-        #OBSOLETE TODO remove
-        # acc = measureGlobalAccuracy(f_ans, gt_questions, vocab, args.images_min, args.images_max)
-        # general_accuracy = acc['cor']/acc['tot']
-        # print(f"  Global Accuracy = {general_accuracy} ({acc['cor']}/{acc['tot']})")
-
-        cor, tot = 0, 0
-        for acc_info in image_2_accuracy:
-            if acc_info != None:
-                cor += acc_info['cor']
-                tot += acc_info['tot']
-        general_accuracy = cor / tot
-        print(f"  Global Accuracy = {general_accuracy} ({cor}/{tot})")
-
-    if args.shape_analysis[1] == '0':
-        exit()
+        # the files shold be generated from the analyse_image_subsets.py file
+        exit(1)
 
     # GATHER image-to-covered-shapes map
-    # TODO move this down, and only look at this data if the ordering is not taken from a file
     image_2_shapes = {}
     for num_parallels in allowed_parallels:
         with open(f'{args.data_json}/data{num_parallels}pars.json', 'r') as f:
@@ -363,7 +321,270 @@ def main(args):
             else:
                 image_2_shapes[str(num_parallels)].append(all_neigh_occurrences[str(img_id)])
 
-    # TODO GATHER image-to-covered-neurons map
+
+    # MEASURE AND PRINT GLOBAL ACCURACY AND STATS
+    # def printAccuracy(prefix):
+    #     cor, tot = 0, 0
+    #     for acc_info in image_2_accuracy:
+    #         if acc_info != None:
+    #             cor += acc_info[f'{prefix}cor']
+    #             tot += acc_info[f'{prefix}tot']
+    #     general_accuracy = round(cor / tot, 3)
+
+    #     name = {"":"Global", "y-":"Yes/1", "n-":"No/0"}
+    #     print(f"  {name[prefix]} Accuracy = {general_accuracy} ({cor}/{tot})")
+
+    # printAccuracy("")
+    # printAccuracy("y-")
+    # printAccuracy("n-")
+    
+
+    #################
+    # DATA ANALYSIS
+    #################
+
+    # THE TWO RELVANT MAPS NOW ARE:
+    # image_2_accuracy, image_2_shapes
+
+    # #############
+    # #Global acuracy vs specfific accuracies
+    # def getAccuracy(prefix):
+    #     cor, tot = 0, 0
+    #     for acc_info in image_2_accuracy:
+    #         if acc_info != None:
+    #             cor += acc_info[f'{prefix}cor']
+    #             tot += acc_info[f'{prefix}tot']
+    #     general_accuracy = round(cor / tot, 4)
+
+    #     print(general_accuracy)
+
+    # getAccuracy("")
+    # getAccuracy("y-")
+    # getAccuracy("n-")
+
+
+    # num_obj = image_2_accuracy[id]["y_tot"]
+
+    ################
+
+    def add2map(x,y, x_2_y):
+        if x in x_2_y.keys():
+            x_2_y[x].append(y)
+        else:
+            x_2_y[x] = [y]
+    
+    def add2list(ind, item, l):
+        if ind >= len(l):
+            num_indices_to_add = ind - len(l)
+            for _ in range(num_indices_to_add):
+                l.append([])
+            l.append([item])
+        else:
+            l[ind].append(item)
+
+    def addF1Info(ind, acc_info, l):
+        if ind >= len(l):
+            num_indices_to_add = ind + 1 - len(l)
+            for _ in range(num_indices_to_add):
+                l.append({"tp":0, "fn":0, "fp":0, "tn":0})
+        
+        l[ind]["tp"] += acc_info['y-cor']
+        l[ind]["fn"] += acc_info['y-tot'] - acc_info['y-cor']
+        l[ind]["tn"] += acc_info['n-cor']
+        l[ind]["fp"] += acc_info['n-tot'] - acc_info['n-cor']
+
+    # Num objects in image vs accuracy
+    
+    num_objects_list = [0 for _ in range(11)]
+    num_objects_2_accuracies = []
+    num_objects_2_f1_info = []
+    num_shapes_2_accuracies = []
+    dif_shapes_2_accuracies = []
+    specific_shape_2_accuracy = [[] for _ in image_2_shapes["0"][0]]
+    shape_landscape_diff_2_acc_diff = []
+
+
+    for im_id, acc_info in tqdm(enumerate(image_2_accuracy)):
+        if acc_info != None:
+            # ACC
+            accuracy = (acc_info[f'cor'] / acc_info[f'tot'])
+
+            # GT
+            gt_scene = all_scenes[im_id]
+            num_objects = len(gt_scene["objects"])
+            num_objects_list[num_objects] += 1
+
+            # SHAPE
+            shape_info = image_2_shapes["0"][im_id] #TODO, 0 is the num_parallels
+
+            num_shapes = sum(shape_info)
+            dif_shapes = len(list(filter(lambda x : (x != 0), shape_info)))
+
+            # specific_shape_2_accuracy
+            for sh_id, sh_ex in enumerate(shape_info):
+                if sh_ex != 0:
+                    specific_shape_2_accuracy[sh_id].append(accuracy)
+
+            # shape pair analysis
+            for im_id_2, acc_info_2 in enumerate(image_2_accuracy[im_id+1:]):
+
+                # get shape diff
+                shape_info_2 = image_2_shapes["0"][im_id_2] #TODO, 0 is the num_parallels
+                shape_diff = 0
+                for shape_id, num_shape_1 in enumerate(shape_info):
+                    num_shape_2 = shape_info_2[shape_id]
+                    shape_diff += abs(num_shape_1-num_shape_2)
+
+                # get accuracy diff
+                accuracy_2 = (acc_info_2[f'cor'] / acc_info_2[f'tot'])
+                acc_diff = abs(accuracy-accuracy_2)
+                add2list(shape_diff, acc_diff, shape_landscape_diff_2_acc_diff)
+
+            addF1Info(num_objects, acc_info, num_objects_2_f1_info)
+            add2list(num_objects, accuracy, num_objects_2_accuracies)
+            add2list(num_shapes, accuracy, num_shapes_2_accuracies)
+            add2list(dif_shapes, accuracy, dif_shapes_2_accuracies)
+
+    def printMap(l, random_select = None, best_score = 1):
+        # if type(x_2_y) == list:
+        for x, data_list in enumerate(l):
+            if data_list == []:
+                continue
+            new_data_list = data_list
+            if random_select != None and random_select < len(data_list):
+                new_data_list = random.sample(data_list, random_select)
+            num_best = new_data_list.count(best_score)
+            print(f"{x}: {statistics.mean(new_data_list)} ({len(new_data_list)}) ({num_best} {best_score}s ({round(num_best/len(new_data_list)*100, 1)}%))")
+        # else:
+        #     for x in sorted(list(x_2_y.keys())):
+        #         print(f"{x}: {mean(x_2_y[x])} ({len(x_2_y[x])})")
+        print("-----")
+
+    def saveFig(l, fig_name):
+        path_dir = f'{args.figs_path}/{args.encoder}/{fig_name}'
+        path_file = f'{path_dir}/{args.save_filename}.png'
+        if not os.path.isdir(os.path.dirname(path_file)):
+            os.makedirs(os.path.dirname(path_file))
+
+        # box plots
+        # for i, series in enumerate(l):
+        plt.boxplot(l, positions=list(range(len(l))))
+
+        # for series_info in list_of_plot_info:
+        #     plt.plot(series_info['series'], 
+        #         label=series_info['label'] if 'label' in series_info else None,
+        #         alpha=series_info['alpha'] if 'alpha' in series_info else 1,
+        #         color=series_info['color'] if 'color' in series_info else None,
+        #         linestyle=series_info['linestyle'] if 'linestyle' in series_info else 'solid'
+        #     )
+        plt.xlabel('x')
+        plt.ylabel('y')
+        # plt.yscale('log')
+        # plt.ylim(0, 0.02)
+        # if ylim != None:
+        #     plt.ylim(ylim[0], ylim[1])
+        # legend_pos = "upper right" if fig_name.startswith("conv") else "lower right"
+        # plt.legend(loc=legend_pos)
+        # plt.legend()
+        plt.savefig(path_file)
+        plt.clf()
+        print(f'    Saving plot at {path_file}')
+
+    
+    # create fig
+    # print(num_objects_list)
+    # printMap(num_objects_2_accuracies)
+    # printMap(num_shapes_2_accuracies)
+    # printMap(dif_shapes_2_accuracies)
+    # printMap(specific_shape_2_accuracy)
+    
+    def measureF1Score(j):
+        precision = j['tp']/(j['tp']+j['fp'])
+        recall = j['tp']/(j['tp']+j['fn'])
+        return 2 * (precision * recall) / (precision + recall)
+
+    def saveF1Fig():
+        f1_scores = []
+        f1_xs = []
+        totals = {"tp":0, "fn":0, "fp":0, "tn":0}
+        for i, j in enumerate(num_objects_2_f1_info):
+            # t = j["tp"]+j["tn"]
+            a = j["tp"]+j["tn"]+j["fn"]+j["fp"]
+            if a == 0:
+                continue
+
+            for k in totals.keys():
+                totals[k] += j[k]
+
+            f1 = measureF1Score(j)
+            print(f'{i} objects: f1 = {f1}')
+            f1_xs.append(i)
+            f1_scores.append(f1)
+
+        f1_tot_val = measureF1Score(totals)
+        f1_totals = [f1_tot_val for _ in f1_xs]
+
+        # Create fig
+        path_dir = f'{args.figs_path}/{args.encoder}/f1-score'
+        path_file = f'{path_dir}/{args.save_filename}.png'
+        if not os.path.isdir(os.path.dirname(path_file)):
+            os.makedirs(os.path.dirname(path_file))
+        
+        plt.plot(f1_xs, f1_scores, label = "score-per-num-obj")
+        plt.plot(f1_xs, f1_totals, label="global f1 score")
+        plt.xlabel('num objects')
+        plt.ylabel('f1 score')
+        plt.savefig(path_file)
+        plt.clf()
+        print(f'    Saving plot at {path_file}')
+
+    
+    saveF1Fig()
+    # printMap(shape_landscape_diff_2_acc_diff, None, 0)
+    # saveFig(shape_landscape_diff_2_acc_diff, "accuracy-differences")
+    # printMap(num_objects_2_accuracies, 50)
+    # saveFig(num_objects_2_accuracies, "objects-2-accuracies")
+
+    exit()
+
+    def createPlot(plot_info, ylim):
+        list_of_plot_info = plot_info['series_info']
+        fig_name = plot_info['fig_name']
+
+        # path_dir = f'{args.figs_path}/{args.save_subdir}/{fig_name}-accuracy.png'
+        path_dir = f'{args.figs_path}/{args.encoder}/{fig_name}'
+        path_file = f'{path_dir}/{args.save_filename}.png'
+        if not os.path.isdir(os.path.dirname(path_file)):
+            os.makedirs(os.path.dirname(path_file))
+
+        for series_info in list_of_plot_info:
+            plt.plot(series_info['series'], 
+                label=series_info['label'] if 'label' in series_info else None,
+                alpha=series_info['alpha'] if 'alpha' in series_info else 1,
+                color=series_info['color'] if 'color' in series_info else None,
+                linestyle=series_info['linestyle'] if 'linestyle' in series_info else 'solid'
+            )
+        plt.xlabel('Number of images')
+        plt.ylabel('Accuracy')
+        if ylim != None:
+            plt.ylim(ylim[0], ylim[1])
+        legend_pos = "upper right" if fig_name.startswith("conv") else "lower right"
+        plt.legend(loc=legend_pos)
+        plt.savefig(path_file)
+        plt.clf()
+        print(f'    Saving plot at {path_file}')
+
+    exit()
+
+
+    
+
+
+
+
+
+
+
 
     #################
     # RELEVANT IMAGE ORDERINGS
