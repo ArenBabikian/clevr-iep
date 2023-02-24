@@ -1,9 +1,10 @@
-data/
-data-graph/
+data*/
 clevr-distinct/
 *.pyc
 .env/
 *.swp
 .ipynb_checkpoints/
-models/
+/models/
 .vscode
+.archive/
+.results/

@@ -227,8 +227,13 @@ class ModuleNet(nn.Module):
   def forward(self, x, program):
     N = x.size(0)
     assert N == len(program)
-
-    feats = self.stem(x)
+    
+    if x.size(1) == 1024:
+      feats = self.stem(x)
+    elif x.size(1) == 128:
+      feats = x
+    else:
+      exit('Invalid features dimensions')
 
     if type(program) is list or type(program) is tuple:
       final_module_outputs = self._forward_modules_json(feats, program)

@@ -7,7 +7,11 @@
 import argparse, os, json
 import h5py
 import numpy as np
-from scipy.misc import imread, imresize
+#from scipy.misc import imread, imresize
+from imageio import imread
+from PIL import Image
+from pathlib import Path
+
 
 import torch
 import torchvision
@@ -29,8 +33,6 @@ parser.add_argument('--batch_size', default=128, type=int)
 
 parser.add_argument('--use_gpu', default=1, type=int)
 parser.add_argument('--get_every_layer', default=0, type=int)
-
-parser.add_argument('--alt_naming', default=False, action='store_true')
 
 def build_model(args, dtype):
   if not hasattr(torchvision.models, args.model):
@@ -89,10 +91,8 @@ def main(args):
   idx_set = set()
   for fn in os.listdir(args.input_image_dir):
     if not fn.endswith('.png'): continue
-    if not args.alt_naming:
-      idx = int(os.path.splitext(fn)[0].split('_')[-1])
-    else:
-      idx = int(os.path.splitext(fn)[0].split('_')[-2])
+    middle_split_str = os.path.splitext(fn)[0].split('_')[-2]
+    idx = int(middle_split_str) if middle_split_str.isdigit() else int(os.path.splitext(fn)[0].split('_')[-1])
     input_paths.append((os.path.join(args.input_image_dir, fn), idx))
     idx_set.add(idx)
   input_paths.sort(key=lambda x: x[1])
@@ -114,14 +114,15 @@ def main(args):
   dataset_path = f'{args.output_h5_dir}/{args.output_h5_prefix}_{args.min_index}_{max_index}.h5'
   dataset_ids_path = f'{args.output_h5_dir}/{args.output_h5_prefix}_ids_{args.min_index}_{max_index}.h5'
 
+  Path(dataset_path).parent.mkdir(exist_ok=True, parents=True)
   with h5py.File(dataset_path, 'w') as f:
     feat_dset = None
     i0 = 0
     cur_batch = []
     all_ids = []
     for i, (path, idx) in enumerate(input_paths):
-      img = imread(path, mode='RGB')
-      img = imresize(img, img_size, interp='bicubic')
+      img = imread(path, pilmode='RGB')
+      img = np.array(Image.fromarray(img).resize((img_size), Image.BICUBIC))
       img = img.transpose(2, 0, 1)[None]
       cur_batch.append(img)
       all_ids.append(idx)

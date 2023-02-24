@@ -18,9 +18,11 @@ from sklearn.manifold import MDS, TSNE # for MDS dimensionality reduction
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
+from sys import exit
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_dir', type=str, default=None)
+parser.add_argument('--feats_name', type=str, default=None)
 parser.add_argument('--encoder', type=str, default=None)
 parser.add_argument('--min_index', default=0, type=int)
 parser.add_argument('--max_index', default=None, type=int)
@@ -28,8 +30,8 @@ parser.add_argument('--figs_dir', default=None)
 parser.add_argument('--num_samples', default=100, type=int)
 parser.add_argument('--num_deco_feats', default=64, type=int)
 
-graph_ids = ['6_rand_nsga', '6_000', '6_003', '6_312']
-colors = ['black', 'red', 'blue', 'green']
+graph_ids = ['6_000', '6_003', '6_312', '6_rand_nsga']
+colors = ['red', 'blue', 'green', 'black']
 
 # graph_ids = ['6_rand_nsga', '6_312']
 
@@ -62,18 +64,17 @@ def main(args):
     
     # RARE EVENT SIMULATION
     rand_int_reps = None
-    # all_classifiers = {}
-    # for gid in graph_ids:
-    #     all_classifiers[gid] = []
+    gid_2_all_inter_reps = {}
     rare_event_detection_approaches = [IsolationForest(), OneClassSVM()]
 
     for j, graph_id in enumerate(graph_ids):
-        features_path = f'{args.data_dir}/{graph_id}/feats/k-{args.encoder}_{args.min_index}_{args.max_index}.h5'
+        features_path = f'{args.data_dir}/{graph_id}/{args.feats_name}/k-{args.encoder}_{args.min_index}_{args.max_index}.h5'
 
         print('Loading image features from ', features_path)
         f_img = h5py.File(features_path, 'r')
         # image_features = torch.FloatTensor(f['features'])
         arr = np.asarray(f_img['features'], dtype=np.float32)[:args.num_samples]
+        # print(arr.shape) # 250 images * 1024*14*14
         image_features = torch.FloatTensor(arr).flatten(start_dim=1)
         # print(image_features.size()) # 250 images * 1024*14*14 -> 250 images * 200704
 
@@ -103,26 +104,27 @@ def main(args):
 
         # TODO we need to do thge opposite:
         # first, train according to the images associated to a single graph, 
-        # then check if the images associated to other graphs are considered as inliers or outliers
-        if graph_id != '6_rand_nsga':
-            print(f'  Compared to {graph_id}')
-            for red_app in rare_event_detection_approaches:
-                print(f'    Approach: {red_app}')
-                for int_rep_id, int_rep in enumerate(all_int_reps_for_gid):
-                    # Fit
-                    s = int_rep.shape
-                    print(f'      Rep #{int_rep_id}, {int_rep_names[int_rep_id]} {s}: ', end='')
-                    cl = red_app.fit(int_rep)
-                    # Predict
-                    out = cl.predict(rand_int_reps[int_rep_id])
-                    num_in = sum(1 for prediction in out if prediction == 1)
-                    num_out = sum(1 for prediction in out if prediction == -1)
-                    print(f'{num_in} inliers, {num_out} outliers')
-            print()
+        # then check if the images associated to other (random) graphs are considered as inliers or outliers
+        # We are expecting most of the random graphs (features) to be outliers
+        if graph_id == '6_rand_nsga':
+            for cur_gid, cur_int_reps in gid_2_all_inter_reps.items():
+                print(f'  Preicting if {graph_id} fits in {cur_gid}')
+                for red_app in rare_event_detection_approaches:
+                    print(f'    Approach: {red_app}')
+                    for int_rep_id, int_rep in enumerate(cur_int_reps):
+                        # Fit
+                        s = int_rep.shape
+                        print(f'      Rep #{int_rep_id}, {int_rep_names[int_rep_id]} {s}: ', end='')
+                        cl = red_app.fit(int_rep)
+                        # Predict
+                        out = cl.predict(all_int_reps_for_gid[int_rep_id])
+                        num_in = sum(1 for prediction in out if prediction == 1)
+                        num_out = sum(1 for prediction in out if prediction == -1)
+                        print(f'{num_in} inliers, {num_out} outliers')
+                print()
         else:
             # print('<<<<RARE EVENT DETECTION>>>>')
-            rand_int_reps = all_int_reps_for_gid
-
+            gid_2_all_inter_reps[graph_id] = all_int_reps_for_gid
 
     # DISPLAY PLOTS
     for app_name in all_graph_reps.keys():
@@ -133,13 +135,6 @@ def main(args):
             plt.title(int_rep_names[sp_id])
             plt.scatter(x=all_fs[:,0], y=all_fs[:,1], c=all_colors, alpha=0.5)
         plt.show()
-
-    # for k in range(num_int_rep):
-    #     for app_name in all_graph_reps.keys():
-    #         print(f'<<<<{app_name}>>>>')
-    #         all_fs = all_graph_reps[app_name][k]
-    #         plt.scatter(x=all_fs[:,0], y=all_fs[:,1], c=all_colors, alpha=0.7)
-    #         plt.show()
 
     exit()
 

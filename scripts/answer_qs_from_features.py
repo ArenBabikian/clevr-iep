@@ -7,6 +7,7 @@
 import argparse
 import sys
 import os
+from sys import exit
 
 import torch
 from torch.autograd import Variable
@@ -43,6 +44,7 @@ parser.add_argument('--questions_file', type=str, default=None)
 parser.add_argument('--questions_interval', type=int, default=1)
 parser.add_argument('--num_images', type=int, default=3000)
 parser.add_argument('--image_features', type=str, default=None)
+parser.add_argument('--only_extract_stem_feats', default=False, action='store_true')
 
 # If this is passed, then save all predictions to this file
 parser.add_argument('--output_dir', default=None)
@@ -121,7 +123,41 @@ def run_raw_images(args, model, vocab_path):
   f_img = h5py.File(args.image_features, 'r')
   # image_features = torch.FloatTensor(f['features'])
   arr = np.asarray(f_img['features'], dtype=np.float32)
-  image_features = torch.FloatTensor(arr)
+  image_features = torch.tensor(arr).type(dtype)
+
+  if args.only_extract_stem_feats:
+    # (*) Run the model
+    scores = None
+    if type(model) is tuple:
+      _, execution_engine = model
+      execution_engine.type(dtype)
+    else:
+      exit(1)
+      # UNHANDLED FOR NOW
+
+    # (*) Set save path
+    path = Path(args.image_features)
+    grandparent = path.parent.parent.absolute()
+    feats_stem_path = grandparent / 'stem-feats' / path.name
+    if not os.path.isdir(os.path.dirname(feats_stem_path)):
+        os.makedirs(os.path.dirname(feats_stem_path))
+    
+    # TODO no GPU support for now
+    print('Saving image stem features at ', feats_stem_path)
+    with h5py.File(feats_stem_path, 'w') as f:
+      feat_dset = None
+      for f_i, feats in tqdm(enumerate(image_features)):
+        # (*) Get image features
+        feats_var = feats.unsqueeze(0)
+        feats_stem = execution_engine.stem(feats_var)
+        if feat_dset is None:
+          N = len(image_features)
+          _, C, H, W = feats_stem.shape
+          feat_dset = f.create_dataset('features', (N, C, H, W),
+                                       dtype=np.float32)
+
+        feat_dset[f_i] = feats_stem.cpu().detach().numpy()
+    exit()
 
   print('Loading question from ', args.questions_file)
   f_q = h5py.File(args.questions_file, 'r')
@@ -144,8 +180,8 @@ def run_raw_images(args, model, vocab_path):
   for i in tqdm(range(0, num_questions, args.questions_interval)):
     # Add counter if tqdm is not working
     counter+=1
-    if counter % 300 == 0 :
-      print(f'{int(counter/300)}-', end='')
+    # if counter % 300 == 0 :
+    #   print(f'{int(counter/300)}-', end='')
     # (*) Get image features
     img_id = image_ids[i]
     feats_var = image_features[img_id]
@@ -161,7 +197,8 @@ def run_raw_images(args, model, vocab_path):
     # question_encoded = question_encoded[:ind]
 
     question_encoded = torch.LongTensor(question_encoded).view(1, -1)
-    question_encoded = question_encoded.type(torch.FloatTensor).long()
+    # TODO ABOVE!!!!!!
+    question_encoded = question_encoded.type(dtype).long()
     question_var = Variable(question_encoded)
     question_var.requires_grad = False
 
@@ -192,7 +229,7 @@ def run_raw_images(args, model, vocab_path):
     predicted_answer = [load_vocab(vocab_path)['answer_idx_to_token'][i.item()] for i in predicted_answer_idx]
 
     # (*) Save results
-    all_scores.append(scores.detach().numpy())
+    all_scores.append(scores.detach().cpu().numpy())
     # predicted.extend(list(predicted_answer))
     predicted.extend(list(predicted_answer_idx))
     q_ids.append(question_ids[i])

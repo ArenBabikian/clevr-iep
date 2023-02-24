@@ -1,6 +1,14 @@
-http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl
+# http://download.pytorch.org/whl/cpu/torch-0.4.1-cp36-cp36m-linux_x86_64.whl
+# http://download.pytorch.org/whl/cu80/torch-0.1.11.post5-cp36-cp36~m-linux_x86_64.whl
+torch
 numpy
 Pillow
 scipy
 torchvision
 h5py
+imageio
+tqdm
+matplotlib
+pandas
+plotly
+scikit-learn

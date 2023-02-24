@@ -11,6 +11,7 @@ import os
 sys.path.insert(0, os.path.abspath('.'))
 
 import argparse
+from pathlib import Path
 
 import json
 import os
@@ -55,6 +56,15 @@ def program_to_str(program, mode):
     return iep.programs.list_to_str(program_postfix)
   return None
 
+def get_im_index(q):
+  # handle case where we have 1 image per graph shape. So the internal image_index
+  # is 1 for all images, but the real index is included as the split.
+  if 'image' not in q.keys():
+    im_index = q['image_index']
+  else:
+    middle_split_str = os.path.splitext(q['image'])[0].split('_')[-2]
+    im_index = int(middle_split_str) if middle_split_str.isdigit() else q["image_index"]
+  return im_index
 
 def main(args):
   if (args.input_vocab_json == '') and (args.output_vocab_json == ''):
@@ -68,11 +78,8 @@ def main(args):
   # Only keep the relevant questions
   questions = []
   for q in questions_raw:
-    # handle case where we have 1 image per graph shape. So the internal image_index
-    # is 1 for all images, but the real index is included as the split.
-    middle_split_str = os.path.splitext(q['image'])[0].split('_')[-2]
-    im_index = int(middle_split_str) if middle_split_str.isdigit() else q["image_index"]
-    if ( im_index >= args.min_index and (not args.max_index or image_idxs < args.max_index )):
+    im_index = get_im_index(q)
+    if ( im_index >= args.min_index and (not args.max_index or im_index < args.max_index )):
       questions.append(q)
 
   # Either create the vocab or load it from disk
@@ -117,6 +124,7 @@ def main(args):
       print('Found %d new words' % num_new_words)
 
   if args.output_vocab_json != '':
+    Path(args.output_vocab_json).parent.mkdir(exist_ok=True, parents=True)
     with open(args.output_vocab_json, 'w') as f:
       json.dump(vocab, f)
 
@@ -132,8 +140,7 @@ def main(args):
     question = q['question']
 
     orig_idxs.append(orig_idx)
-    middle_split_str = os.path.splitext(q['image'])[0].split('_')[-2]
-    im_index = int(middle_split_str) if middle_split_str.isdigit() else q["image_index"]
+    im_index = get_im_index(q)
     image_idxs.append(im_index)
     if 'question_family_index' in q:
       question_families.append(q['question_family_index'])
@@ -178,6 +185,7 @@ def main(args):
   programs_encoded = np.asarray(programs_encoded, dtype=np.int32)
   print(questions_encoded.shape)
   print(programs_encoded.shape)
+  Path(args.output_h5_file).parent.mkdir(exist_ok=True, parents=True)
   with h5py.File(args.output_h5_file, 'w') as f:
     f.create_dataset('questions', data=questions_encoded)
     f.create_dataset('image_idxs', data=np.asarray(image_idxs))
